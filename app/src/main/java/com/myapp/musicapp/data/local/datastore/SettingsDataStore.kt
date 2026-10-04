@@ -43,12 +43,26 @@ class SettingsDataStore(private val context: Context) {
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { preferences ->
+        val themeModeString = preferences[Keys.THEME_MODE]
+        val themeMode = try {
+            if (themeModeString != null) ThemeMode.valueOf(themeModeString) else ThemeMode.SYSTEM
+        } catch (e: Exception) {
+            ThemeMode.SYSTEM
+        }
+
+        val audioQualityString = preferences[Keys.AUDIO_QUALITY]
+        val audioQuality = try {
+            if (audioQualityString != null) AudioQuality.valueOf(audioQualityString) else AudioQuality.HIGH
+        } catch (e: Exception) {
+            AudioQuality.HIGH
+        }
+
         AppSettings(
-            themeMode = ThemeMode.valueOf(preferences[Keys.THEME_MODE] ?: ThemeMode.SYSTEM.name),
+            themeMode = themeMode,
             dynamicColor = preferences[Keys.DYNAMIC_COLOR] ?: true,
             pureBlack = preferences[Keys.PURE_BLACK] ?: false,
             albumArtTheming = preferences[Keys.ALBUM_ART_THEMING] ?: true,
-            audioQuality = AudioQuality.valueOf(preferences[Keys.AUDIO_QUALITY] ?: AudioQuality.HIGH.name),
+            audioQuality = audioQuality,
             skipSilence = preferences[Keys.SKIP_SILENCE] ?: false
         )
     }

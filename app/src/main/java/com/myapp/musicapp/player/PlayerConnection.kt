@@ -3,13 +3,13 @@ package com.myapp.musicapp.player
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import com.myapp.musicapp.data.repository.MusicRepository
 import com.myapp.musicapp.domain.model.Song
 import kotlinx.coroutines.*
@@ -54,32 +54,38 @@ class PlayerConnection(
     }
 
     private fun connect() {
-        val sessionToken = SessionToken(context, ComponentName(context, MusicService::class.java))
-        val controllerFuture: ListenableFuture<MediaController> =
-            MediaController.Builder(context, sessionToken).buildAsync()
+        try {
+            val sessionToken = SessionToken(context, ComponentName(context, MusicService::class.java))
+            val controllerFuture: ListenableFuture<MediaController> =
+                MediaController.Builder(context, sessionToken).buildAsync()
 
-        controllerFuture.addListener({
-            try {
-                mediaController = controllerFuture.get().also { controller ->
-                    controller.addListener(object : Player.Listener {
-                        override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            _isPlaying.value = isPlaying
-                        }
+            controllerFuture.addListener({
+                try {
+                    if (controllerFuture.isDone && !controllerFuture.isCancelled) {
+                        mediaController = controllerFuture.get().also { controller ->
+                            controller.addListener(object : Player.Listener {
+                                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                                    _isPlaying.value = isPlaying
+                                }
 
-                        override fun onRepeatModeChanged(repeatMode: Int) {
-                            _repeatMode.value = RepeatMode.fromExoPlayer(repeatMode)
-                        }
+                                override fun onRepeatModeChanged(repeatMode: Int) {
+                                    _repeatMode.value = RepeatMode.fromExoPlayer(repeatMode)
+                                }
 
-                        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                            _shuffleEnabled.value = shuffleModeEnabled
+                                override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                                    _shuffleEnabled.value = shuffleModeEnabled
+                                }
+                            })
+                            startProgressPolling(controller)
                         }
-                    })
-                    startProgressPolling(controller)
+                    }
+                } catch (e: Throwable) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }, MoreExecutors.directExecutor())
+            }, ContextCompat.getMainExecutor(context))
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
     }
 
     fun playSong(song: Song, queue: List<Song>? = null) {
@@ -112,7 +118,7 @@ class PlayerConnection(
                 }
 
                 repository.addToRecentlyPlayed(song)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -178,9 +184,13 @@ class PlayerConnection(
     private fun startProgressPolling(controller: MediaController) {
         scope.launch {
             while (isActive) {
-                if (controller.isPlaying) {
-                    _progress.value = controller.currentPosition
-                    _duration.value = controller.duration.coerceAtLeast(0)
+                try {
+                    if (controller.isPlaying) {
+                        _progress.value = controller.currentPosition
+                        _duration.value = controller.duration.coerceAtLeast(0)
+                    }
+                } catch (e: Throwable) {
+                    e.printStackTrace()
                 }
                 delay(200)
             }

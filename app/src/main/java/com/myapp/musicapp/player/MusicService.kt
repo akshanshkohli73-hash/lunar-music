@@ -11,45 +11,58 @@ import androidx.media3.session.MediaSessionService
 
 class MusicService : MediaSessionService() {
 
-    private lateinit var player: ExoPlayer
-    private lateinit var mediaSession: MediaSession
+    private var player: ExoPlayer? = null
+    private var mediaSession: MediaSession? = null
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
 
-        player = ExoPlayer.Builder(this)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                true
-            )
-            .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_NETWORK)
-            .setLoadControl(
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        30_000,
-                        120_000,
-                        2_500,
-                        5_000
-                    )
-                    .build()
-            )
-            .build()
+        try {
+            val exoPlayer = ExoPlayer.Builder(this)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .build(),
+                    true
+                )
+                .setHandleAudioBecomingNoisy(true)
+                .setWakeMode(C.WAKE_MODE_NETWORK)
+                .setLoadControl(
+                    DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(
+                            30_000,
+                            120_000,
+                            2_500,
+                            5_000
+                        )
+                        .build()
+                )
+                .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+            player = exoPlayer
+            mediaSession = MediaSession.Builder(this, exoPlayer).build()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession {
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
 
     override fun onDestroy() {
-        mediaSession.release()
-        player.release()
+        try {
+            mediaSession?.run {
+                player.release()
+                release()
+            }
+            mediaSession = null
+            player = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         super.onDestroy()
     }
 }

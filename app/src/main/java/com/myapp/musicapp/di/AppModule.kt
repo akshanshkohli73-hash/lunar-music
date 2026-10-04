@@ -38,7 +38,9 @@ val appModule = module {
             get(),
             AppDatabase::class.java,
             "music_app_database"
-        ).build()
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
     single { get<AppDatabase>().songDao() }
     single { get<AppDatabase>().albumDao() }
